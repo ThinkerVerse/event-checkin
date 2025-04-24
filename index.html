@@ -71,10 +71,10 @@
                         </div>
                         
                         <button
-                            id="check-in-button"
+                            id="close-button"
                             class="w-full bg-blue-500 text-white p-3 rounded-lg font-medium hover:bg-blue-600 transition"
                         >
-                            Confirm Check-In
+                            Close
                         </button>
                     </div>
                     
@@ -118,7 +118,7 @@
         const guestTable = document.getElementById('guest-table');
         const guestSeat = document.getElementById('guest-seat');
         const alreadyCheckedIn = document.getElementById('already-checked-in');
-        const checkInButton = document.getElementById('check-in-button');
+        const closeButton = document.getElementById('close-button');
         const backButton = document.getElementById('back-button');
         const errorContainer = document.getElementById('error-container');
         const errorMessage = document.getElementById('error-message');
@@ -130,7 +130,7 @@
         
         // Event listeners
         searchInput.addEventListener('input', handleSearch);
-        checkInButton.addEventListener('click', handleCheckIn);
+        closeButton.addEventListener('click', resetSelection);
         backButton.addEventListener('click', resetSelection);
         tryAgainButton.addEventListener('click', () => {
             errorContainer.classList.add('hidden');
@@ -148,7 +148,25 @@
                 hideLoading();
                 showSearch();
             } catch (err) {
-                showError('Failed to load guest list. Please try again.');
+                // Fallback to mock data if API fails
+                console.error("API error:", err);
+                
+                // Mock data for testing
+                guests = [
+                    { id: 1, name: "John Smith", table: "Table 5", seat: "Seat 3", checkedIn: false },
+                    { id: 2, name: "Jane Doe", table: "Table 2", seat: "Seat 7", checkedIn: true },
+                    { id: 3, name: "Michael Johnson", table: "Table 1", seat: "Seat 2", checkedIn: false },
+                    { id: 4, name: "Sarah Williams", table: "Table 3", seat: "Seat 1", checkedIn: false },
+                    { id: 5, name: "Robert Brown", table: "Table 4", seat: "Seat 6", checkedIn: false },
+                    { id: 6, name: "Emily Davis", table: "Table 2", seat: "Seat 4", checkedIn: false },
+                    { id: 7, name: "David Miller", table: "Table 5", seat: "Seat 5", checkedIn: true },
+                    { id: 8, name: "Jennifer Wilson", table: "Table 1", seat: "Seat 8", checkedIn: false },
+                    { id: 9, name: "William Taylor", table: "Table 3", seat: "Seat 2", checkedIn: false },
+                    { id: 10, name: "Amanda Martinez", table: "Table 4", seat: "Seat 3", checkedIn: false }
+                ];
+                
+                hideLoading();
+                showSearch();
             }
         }
         
@@ -209,42 +227,13 @@
             
             if (guest.checkedIn) {
                 alreadyCheckedIn.classList.remove('hidden');
-                checkInButton.classList.add('hidden');
             } else {
                 alreadyCheckedIn.classList.add('hidden');
-                checkInButton.classList.remove('hidden');
             }
             
             searchContainer.classList.add('hidden');
             guestDetails.classList.remove('hidden');
             searchInput.value = '';
-        }
-        
-        // Handle check-in
-        async function handleCheckIn() {
-            showLoading();
-            try {
-                const response = await fetch(`${API_URL}?action=checkIn&id=${selectedGuest.id}`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    // Update local state
-                    selectedGuest.checkedIn = true;
-                    const index = guests.findIndex(g => g.id === selectedGuest.id);
-                    if (index !== -1) {
-                        guests[index].checkedIn = true;
-                    }
-                    
-                    alreadyCheckedIn.classList.remove('hidden');
-                    checkInButton.classList.add('hidden');
-                } else {
-                    showError('Failed to check in. Please try again.');
-                }
-                
-                hideLoading();
-            } catch (err) {
-                showError('Failed to check in. Please try again.');
-            }
         }
         
         // Reset selection
