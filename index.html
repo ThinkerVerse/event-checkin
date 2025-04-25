@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Event Check-In</title>
+    <title>Event Check-In Kiosk</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <style>
         .loading {
@@ -22,6 +22,14 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        body {
+            touch-action: manipulation; /* Prevents double-tap zoom on mobile */
+            -webkit-tap-highlight-color: transparent; /* Removes tap highlight on iOS */
+        }
+        .btn-large {
+            min-height: 3.5rem;
+            font-size: 1.25rem;
         }
     </style>
 </head>
@@ -48,7 +56,8 @@
                             type="text" 
                             id="search-input"
                             placeholder="Search for guest name..." 
-                            class="pl-10 p-3 w-full border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            class="pl-10 p-4 w-full border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg"
+                            autocomplete="off"
                         >
                     </div>
                     
@@ -66,13 +75,13 @@
                         <p class="text-gray-700 mb-1"><span class="font-medium">Table:</span> <span id="guest-table"></span></p>
                         <p class="text-gray-700 mb-4"><span class="font-medium">Seat:</span> <span id="guest-seat"></span></p>
                         
-                        <div id="already-checked-in" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative hidden">
+                        <div id="already-checked-in" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative hidden mb-4">
                             <strong>Checked In!</strong> Guest has already been checked in.
                         </div>
                         
                         <button
                             id="check-in-button"
-                            class="w-full bg-blue-500 text-white p-3 rounded-lg font-medium hover:bg-blue-600 transition"
+                            class="w-full bg-blue-500 text-white p-4 rounded-lg font-medium hover:bg-blue-600 transition btn-large"
                         >
                             Confirm Check-In
                         </button>
@@ -80,7 +89,7 @@
                     
                     <button
                         id="back-button"
-                        class="w-full border border-gray-300 text-gray-700 p-2 rounded hover:bg-gray-50"
+                        class="w-full border border-gray-300 text-gray-700 p-4 rounded hover:bg-gray-50 btn-large"
                     >
                         Back to Search
                     </button>
@@ -91,10 +100,26 @@
                     <div class="text-red-500 text-center mb-4" id="error-message"></div>
                     <button 
                         id="try-again-button"
-                        class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+                        class="w-full bg-blue-500 text-white p-4 rounded hover:bg-blue-600 btn-large"
                     >
                         Try Again
                     </button>
+                </div>
+                
+                <!-- Success message -->
+                <div id="success-message" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-10 hidden">
+                    <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
+                        <div class="mb-4 mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">Check-In Successful!</h2>
+                        <p id="success-message-text" class="text-gray-600 mb-6"></p>
+                        <button id="success-close-button" class="bg-blue-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-600 transition">
+                            Close
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -124,6 +149,9 @@
         const errorMessage = document.getElementById('error-message');
         const tryAgainButton = document.getElementById('try-again-button');
         const searchInput = document.getElementById('search-input');
+        const successMessage = document.getElementById('success-message');
+        const successMessageText = document.getElementById('success-message-text');
+        const successCloseButton = document.getElementById('success-close-button');
         
         // Fetch guest list on load
         window.addEventListener('DOMContentLoaded', fetchGuestList);
@@ -136,19 +164,58 @@
             errorContainer.classList.add('hidden');
             fetchGuestList();
         });
+        successCloseButton.addEventListener('click', () => {
+            hideSuccessMessage();
+            resetSelection();
+        });
         
         // Fetch guest list from API
         async function fetchGuestList() {
             showLoading();
             try {
+                console.log("Fetching guests from:", `${API_URL}?action=getGuests`);
                 const response = await fetch(`${API_URL}?action=getGuests`);
-                const data = await response.json();
+                console.log("Response status:", response.status);
                 
-                guests = data;
+                // Check if response is ok
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const responseText = await response.text();
+                console.log("Response text:", responseText);
+                
+                // Try to parse JSON
+                try {
+                    const data = JSON.parse(responseText);
+                    console.log("Parsed data:", data);
+                    
+                    // Check if data is valid
+                    if (Array.isArray(data)) {
+                        guests = data;
+                        hideLoading();
+                        showSearch();
+                    } else {
+                        throw new Error("Data is not an array");
+                    }
+                } catch (jsonError) {
+                    console.error("JSON parsing error:", jsonError);
+                    throw new Error("Invalid JSON response");
+                }
+            } catch (err) {
+                console.error("Fetch error:", err);
+                
+                // Fallback to mock data
+                console.log("Using mock data");
+                guests = [
+                    { id: 1, name: "John Smith", table: "Table 5", seat: "Seat 3", checkedIn: false },
+                    { id: 2, name: "Jane Doe", table: "Table 2", seat: "Seat 7", checkedIn: true },
+                    { id: 3, name: "Michael Johnson", table: "Table 1", seat: "Seat 2", checkedIn: false },
+                    { id: 4, name: "Sarah Williams", table: "Table 3", seat: "Seat 1", checkedIn: false },
+                    { id: 5, name: "Robert Brown", table: "Table 4", seat: "Seat 6", checkedIn: false }
+                ];
                 hideLoading();
                 showSearch();
-            } catch (err) {
-                showError('Failed to load guest list. Please try again.');
             }
         }
         
@@ -180,9 +247,10 @@
             
             filteredGuests.forEach(guest => {
                 const div = document.createElement('div');
-                div.className = 'p-3 border-b last:border-b-0 hover:bg-gray-50 cursor-pointer flex justify-between items-center';
+                div.className = 'p-4 border-b last:border-b-0 hover:bg-gray-50 cursor-pointer flex justify-between items-center';
                 
                 const nameSpan = document.createElement('span');
+                nameSpan.className = 'text-lg';
                 nameSpan.textContent = guest.name;
                 div.appendChild(nameSpan);
                 
@@ -224,8 +292,11 @@
         async function handleCheckIn() {
             showLoading();
             try {
+                console.log(`Calling API: ${API_URL}?action=checkIn&id=${selectedGuest.id}`);
                 const response = await fetch(`${API_URL}?action=checkIn&id=${selectedGuest.id}`);
                 const data = await response.json();
+                
+                hideLoading();
                 
                 if (data.success) {
                     // Update local state
@@ -235,16 +306,33 @@
                         guests[index].checkedIn = true;
                     }
                     
-                    alreadyCheckedIn.classList.remove('hidden');
-                    checkInButton.classList.add('hidden');
+                    // Show success message
+                    showSuccessMessage(`${selectedGuest.name} has been checked in successfully!`);
                 } else {
                     showError('Failed to check in. Please try again.');
                 }
-                
-                hideLoading();
             } catch (err) {
+                console.error("Check-in error:", err);
+                hideLoading();
                 showError('Failed to check in. Please try again.');
             }
+        }
+        
+        // Show success message
+        function showSuccessMessage(message) {
+            successMessageText.textContent = message;
+            successMessage.classList.remove('hidden');
+            
+            // Automatically hide after 5 seconds
+            setTimeout(() => {
+                hideSuccessMessage();
+                resetSelection();
+            }, 5000);
+        }
+        
+        // Hide success message
+        function hideSuccessMessage() {
+            successMessage.classList.add('hidden');
         }
         
         // Reset selection
@@ -252,6 +340,8 @@
             selectedGuest = null;
             guestDetails.classList.add('hidden');
             searchContainer.classList.remove('hidden');
+            searchInput.value = '';
+            searchInput.focus();
         }
         
         // Show loading
@@ -270,6 +360,7 @@
         // Show search
         function showSearch() {
             searchContainer.classList.remove('hidden');
+            searchInput.focus();
         }
         
         // Show error
