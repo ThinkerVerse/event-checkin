@@ -6,23 +6,6 @@
     <title>Event Check-In Kiosk</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <style>
-        .loading {
-            display: flex;
-            justify-content: center;
-            margin: 2rem 0;
-        }
-        .loading-spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-left-color: #3b82f6;
-            border-radius: 50%;
-            width: 3rem;
-            height: 3rem;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
         body {
             touch-action: manipulation;
             -webkit-tap-highlight-color: transparent;
@@ -38,21 +21,42 @@
             from { opacity: 0; }
             to { opacity: 1; }
         }
+        /* Overlay loading indicator */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        .loading-text {
+            background: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
+    <!-- Loading Overlay (only shows when actually loading) -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-text">Loading...</div>
+    </div>
+
     <div class="container mx-auto px-4 py-8 max-w-md">
         <div class="bg-white rounded-lg shadow-md p-6">
             <h1 class="text-2xl font-bold text-center mb-6">Event Check-In</h1>
             
             <div id="app">
-                <!-- Loading state -->
-                <div id="loading-container" class="loading hidden">
-                    <div class="loading-spinner"></div>
-                </div>
-                
                 <!-- Search interface -->
-                <div id="search-container" class="hidden">
+                <div id="search-container" style="display: none;">
                     <div class="relative mb-6">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -68,21 +72,21 @@
                         >
                     </div>
                     
-                    <div id="results-container" class="border border-gray-200 rounded-lg overflow-hidden hidden"></div>
+                    <div id="results-container" class="border border-gray-200 rounded-lg overflow-hidden" style="display: none;"></div>
                     
-                    <div id="no-results" class="text-center p-4 text-gray-500 hidden">
+                    <div id="no-results" class="text-center p-4 text-gray-500" style="display: none;">
                         No matching guests found
                     </div>
                 </div>
                 
                 <!-- Guest details view -->
-                <div id="guest-details" class="hidden">
+                <div id="guest-details" style="display: none;">
                     <div class="mb-4 p-4 bg-gray-50 rounded-lg">
                         <h2 id="guest-name" class="text-xl font-semibold mb-2"></h2>
                         <p class="text-gray-700 mb-1"><span class="font-medium">Table:</span> <span id="guest-table"></span></p>
                         <p class="text-gray-700 mb-4"><span class="font-medium">Seat:</span> <span id="guest-seat"></span></p>
                         
-                        <div id="already-checked-in" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative hidden mb-4">
+                        <div id="already-checked-in" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" style="display: none;">
                             <strong>Checked In!</strong> Guest has already been checked in.
                             <button id="undo-checkin-button" class="mt-2 w-full bg-red-500 text-white p-2 rounded text-sm hover:bg-red-600 transition">
                                 Undo Check-In
@@ -106,7 +110,7 @@
                 </div>
                 
                 <!-- Error message -->
-                <div id="error-container" class="hidden">
+                <div id="error-container" style="display: none;">
                     <div class="text-red-500 text-center mb-4" id="error-message"></div>
                     <button 
                         id="try-again-button"
@@ -117,7 +121,7 @@
                 </div>
                 
                 <!-- Success message -->
-                <div id="success-message" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-10 hidden">
+                <div id="success-message" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-10" style="display: none;">
                     <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center fade-in">
                         <div class="mb-4 mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-green-500" viewBox="0 0 20 20" fill="currentColor">
@@ -133,7 +137,7 @@
                 </div>
                 
                 <!-- Password prompt for undo -->
-                <div id="password-prompt" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20 hidden">
+                <div id="password-prompt" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20" style="display: none;">
                     <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full fade-in">
                         <h2 class="text-xl font-bold text-gray-800 mb-4">Enter Admin Password</h2>
                         <p class="text-gray-600 mb-4">This action requires admin authorization.</p>
@@ -151,7 +155,7 @@
                                 Submit
                             </button>
                         </div>
-                        <p id="password-error" class="text-red-500 text-sm mt-2 hidden">Incorrect password. Please try again.</p>
+                        <p id="password-error" class="text-red-500 text-sm mt-2" style="display: none;">Incorrect password. Please try again.</p>
                     </div>
                 </div>
             </div>
@@ -160,7 +164,7 @@
 
     <script>
         // CONFIGURATION
-        const API_URL = 'https://script.google.com/macros/s/AKfycbw27WuK2TczZatvL8Jf9TtBygtcmAOqsjugMyIJQd3sm9DcmXhA5CKBOM9s5OvesXE3sA/exec';
+        const API_URL = 'https://script.google.com/macros/s/AKfycbxJM91HN0OYJith17AKArCAHJ3t3ZqDEEYQOGIWUd9LaCVr5tK1O10K1fUOmW4ZHZbrtQ/exec';
         const ADMIN_PASSWORD = 'admin123'; // CHANGE THIS TO YOUR SECURE PASSWORD
         
         // App state
@@ -169,7 +173,7 @@
         let autoResetTimer = null;
         
         // DOM elements
-        const loadingContainer = document.getElementById('loading-container');
+        const loadingOverlay = document.getElementById('loading-overlay');
         const searchContainer = document.getElementById('search-container');
         const resultsContainer = document.getElementById('results-container');
         const noResults = document.getElementById('no-results');
@@ -203,7 +207,7 @@
         undoCheckinButton.addEventListener('click', promptForPassword);
         backButton.addEventListener('click', resetSelection);
         tryAgainButton.addEventListener('click', () => {
-            errorContainer.classList.add('hidden');
+            errorContainer.style.display = 'none';
             fetchGuestList();
         });
         successCloseButton.addEventListener('click', () => {
@@ -212,9 +216,9 @@
             resetSelection();
         });
         passwordCancel.addEventListener('click', () => {
-            passwordPrompt.classList.add('hidden');
+            passwordPrompt.style.display = 'none';
             adminPasswordInput.value = '';
-            passwordError.classList.add('hidden');
+            passwordError.style.display = 'none';
         });
         passwordSubmit.addEventListener('click', handlePasswordSubmit);
         adminPasswordInput.addEventListener('keypress', (e) => {
@@ -236,35 +240,20 @@
                 const responseText = await response.text();
                 console.log("Response text:", responseText);
                 
-                try {
-                    const data = JSON.parse(responseText);
-                    console.log("Parsed data:", data);
-                    
-                    if (Array.isArray(data)) {
-                        guests = data;
-                        hideLoading();
-                        showSearch();
-                    } else {
-                        throw new Error("Data is not an array");
-                    }
-                } catch (jsonError) {
-                    console.error("JSON parsing error:", jsonError);
-                    throw new Error("Invalid JSON response");
+                const data = JSON.parse(responseText);
+                console.log("Parsed data:", data);
+                
+                if (Array.isArray(data)) {
+                    guests = data;
+                    hideLoading();
+                    showSearch();
+                } else {
+                    throw new Error("Data is not an array");
                 }
             } catch (err) {
                 console.error("Fetch error:", err);
-                
-                // Fallback to mock data
-                console.log("Using mock data");
-                guests = [
-                    { id: 1, name: "John Smith", table: "Table 5", seat: "Seat 3", checkedIn: false },
-                    { id: 2, name: "Jane Doe", table: "Table 2", seat: "Seat 7", checkedIn: true },
-                    { id: 3, name: "Michael Johnson", table: "Table 1", seat: "Seat 2", checkedIn: false },
-                    { id: 4, name: "Sarah Williams", table: "Table 3", seat: "Seat 1", checkedIn: false },
-                    { id: 5, name: "Robert Brown", table: "Table 4", seat: "Seat 6", checkedIn: false }
-                ];
                 hideLoading();
-                showSearch();
+                showError('Failed to load guest list. Please check your connection and try again.');
             }
         }
         
@@ -280,19 +269,19 @@
                 if (filtered.length > 0) {
                     displayResults(filtered);
                 } else {
-                    resultsContainer.classList.add('hidden');
-                    noResults.classList.remove('hidden');
+                    resultsContainer.style.display = 'none';
+                    noResults.style.display = 'block';
                 }
             } else {
-                resultsContainer.classList.add('hidden');
-                noResults.classList.add('hidden');
+                resultsContainer.style.display = 'none';
+                noResults.style.display = 'none';
             }
         }
         
         // Display filtered results
         function displayResults(filteredGuests) {
             resultsContainer.innerHTML = '';
-            noResults.classList.add('hidden');
+            noResults.style.display = 'none';
             
             filteredGuests.forEach(guest => {
                 const div = document.createElement('div');
@@ -314,7 +303,7 @@
                 resultsContainer.appendChild(div);
             });
             
-            resultsContainer.classList.remove('hidden');
+            resultsContainer.style.display = 'block';
         }
         
         // Handle guest selection
@@ -325,15 +314,15 @@
             guestSeat.textContent = guest.seat;
             
             if (guest.checkedIn) {
-                alreadyCheckedIn.classList.remove('hidden');
-                checkInButton.classList.add('hidden');
+                alreadyCheckedIn.style.display = 'block';
+                checkInButton.style.display = 'none';
             } else {
-                alreadyCheckedIn.classList.add('hidden');
-                checkInButton.classList.remove('hidden');
+                alreadyCheckedIn.style.display = 'none';
+                checkInButton.style.display = 'block';
             }
             
-            searchContainer.classList.add('hidden');
-            guestDetails.classList.remove('hidden');
+            searchContainer.style.display = 'none';
+            guestDetails.style.display = 'block';
             searchInput.value = '';
         }
         
@@ -345,6 +334,7 @@
                 const response = await fetch(`${API_URL}?action=checkIn&id=${selectedGuest.id}`);
                 const data = await response.json();
                 
+                console.log("Check-in response:", data);
                 hideLoading();
                 
                 if (data.success) {
@@ -369,7 +359,7 @@
         
         // Prompt for password
         function promptForPassword() {
-            passwordPrompt.classList.remove('hidden');
+            passwordPrompt.style.display = 'flex';
             adminPasswordInput.focus();
         }
         
@@ -378,12 +368,12 @@
             const password = adminPasswordInput.value;
             
             if (password === ADMIN_PASSWORD) {
-                passwordPrompt.classList.add('hidden');
+                passwordPrompt.style.display = 'none';
                 adminPasswordInput.value = '';
-                passwordError.classList.add('hidden');
+                passwordError.style.display = 'none';
                 handleUndoCheckIn();
             } else {
-                passwordError.classList.remove('hidden');
+                passwordError.style.display = 'block';
                 adminPasswordInput.value = '';
                 adminPasswordInput.focus();
             }
@@ -395,7 +385,11 @@
             try {
                 console.log(`Calling API: ${API_URL}?action=undoCheckIn&id=${selectedGuest.id}`);
                 const response = await fetch(`${API_URL}?action=undoCheckIn&id=${selectedGuest.id}`);
-                const data = await response.json();
+                const responseText = await response.text();
+                console.log("Undo response text:", responseText);
+                
+                const data = JSON.parse(responseText);
+                console.log("Undo response data:", data);
                 
                 hideLoading();
                 
@@ -408,25 +402,25 @@
                     }
                     
                     // Update UI
-                    alreadyCheckedIn.classList.add('hidden');
-                    checkInButton.classList.remove('hidden');
+                    alreadyCheckedIn.style.display = 'none';
+                    checkInButton.style.display = 'block';
                     
                     // Show brief confirmation
                     alert(`Check-in cancelled for ${selectedGuest.name}`);
                 } else {
-                    showError('Failed to undo check-in. Please try again.');
+                    showError(`Failed to undo check-in. ${data.error || 'Please try again.'}`);
                 }
             } catch (err) {
                 console.error("Undo check-in error:", err);
                 hideLoading();
-                showError('Failed to undo check-in. Please try again.');
+                showError('Failed to undo check-in. Error: ' + err.message);
             }
         }
         
         // Show success message
         function showSuccessMessage(message) {
             successMessageText.textContent = message;
-            successMessage.classList.remove('hidden');
+            successMessage.style.display = 'flex';
             
             // Automatically hide and reset after 5 seconds
             autoResetTimer = setTimeout(() => {
@@ -437,7 +431,7 @@
         
         // Hide success message
         function hideSuccessMessage() {
-            successMessage.classList.add('hidden');
+            successMessage.style.display = 'none';
         }
         
         // Clear auto-reset timer
@@ -451,38 +445,35 @@
         // Reset selection
         function resetSelection() {
             selectedGuest = null;
-            guestDetails.classList.add('hidden');
-            searchContainer.classList.remove('hidden');
+            guestDetails.style.display = 'none';
+            searchContainer.style.display = 'block';
             searchInput.value = '';
             searchInput.focus();
         }
         
         // Show loading
         function showLoading() {
-            searchContainer.classList.add('hidden');
-            guestDetails.classList.add('hidden');
-            errorContainer.classList.add('hidden');
-            loadingContainer.classList.remove('hidden');
+            loadingOverlay.style.display = 'flex';
         }
         
         // Hide loading
         function hideLoading() {
-            loadingContainer.classList.add('hidden');
+            loadingOverlay.style.display = 'none';
         }
         
         // Show search
         function showSearch() {
-            searchContainer.classList.remove('hidden');
+            searchContainer.style.display = 'block';
             searchInput.focus();
         }
         
         // Show error
         function showError(message) {
             hideLoading();
-            searchContainer.classList.add('hidden');
-            guestDetails.classList.add('hidden');
+            searchContainer.style.display = 'none';
+            guestDetails.style.display = 'none';
             errorMessage.textContent = message;
-            errorContainer.classList.remove('hidden');
+            errorContainer.style.display = 'block';
         }
     </script>
 </body>
